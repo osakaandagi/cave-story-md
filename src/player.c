@@ -1057,7 +1057,7 @@ void player_draw(void) {
 				vdir = 1;
 			}
 			if(vert) {
-				int8_t vert_y = (vdir ? -4 : -12) + walk_y;
+				int8_t vert_y = (vdir ? -4 : -12) + walk_y; //fixes polar star not sure about other weapons rn
 				weaponSprite = (Sprite) {
 					.x = (player.x>>CSF) - camera.x_shifted - 4 + 128,
 					.y = (player.y>>CSF) - camera.y_shifted + vert_y + 128,
