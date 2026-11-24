@@ -130,7 +130,7 @@ possible.<NOD<END
 <KEY<CMU0021<FAI0004
 <MSG<TURConnecting to network...<WAI0050
 <TURLogged on.<WAI0050
-<TURExecuting chat algorithm.<WAI0100<CLR<MSGSue?<NOD
+<TURStarting chat.<WAI0100<CLR<MSGSue?<NOD
 You there?<NOD
 It's me.<NOD
 Kazuma!<NOD

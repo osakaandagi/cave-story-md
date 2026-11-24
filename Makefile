@@ -225,6 +225,9 @@ $(BUILD_DIR)/%.o: %.s | assets.d $$(@D)/
 $(BUILD_DIR)/%.s: %.res | $(RESCOMP) $(SALVADOR) $$(@D)/
 	$(RESCOMP) $< $@
 
+# Rebuild the English localization bundle when its generated assets change.
+$(BUILD_DIR)/src/res/local.o: $(TSBS) $(STRO)
+
 # Special case for rescomp output
 $(BUILD_DIR)/%.o: $(BUILD_DIR)/%.s
 	$(AS) -m68000 $(INCS) -c $< -o $@
