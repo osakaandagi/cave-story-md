@@ -68,14 +68,15 @@ void ai_pignon(Entity *e) {
 	e->x_next = e->x + e->x_speed;
 	e->y_next = e->y + e->y_speed;
 	// Don't test ceiling, only test sticking to ground while moving
+	if(e->grounded) {
+		if(e->x_speed != 0) e->grounded = collide_stage_floor_grounded(e);
+	}
 	if(e->x_speed < 0) {
 		collide_stage_leftwall(e);
 	} else if(e->x_speed > 0) {
 		collide_stage_rightwall(e);
 	}
-	if(e->grounded) {
-		if(e->x_speed != 0) e->grounded = collide_stage_floor_grounded(e);
-	} else {
+	if(!e->grounded) {
 		e->grounded = collide_stage_floor(e);
 	}
 	e->x = e->x_next;
@@ -161,14 +162,15 @@ void ai_gkeeper(Entity *e) {
 	e->x_next = e->x + e->x_speed;
 	e->y_next = e->y + e->y_speed;
 	// Don't test ceiling, only test sticking to ground while moving
+	if(e->grounded) {
+		if(e->x_speed != 0) e->grounded = collide_stage_floor_grounded(e);
+	}
 	if(e->x_speed < 0) {
 		collide_stage_leftwall(e);
 	} else if(e->x_speed > 0) {
 		collide_stage_rightwall(e);
 	}
-	if(e->grounded) {
-		if(e->x_speed != 0) e->grounded = collide_stage_floor_grounded(e);
-	} else {
+	if(!e->grounded) {
 		e->grounded = collide_stage_floor(e);
 	}
 	e->x = e->x_next;

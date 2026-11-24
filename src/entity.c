@@ -507,14 +507,15 @@ void entities_update_inactive(void) {
 }
 
 void entity_update_collision(Entity *e) {
+	if(e->grounded) {
+		e->grounded = collide_stage_floor_grounded(e);
+	}
 	if(e->x_speed < 0) {
 		collide_stage_leftwall(e);
 	} else if (e->x_speed > 0) {
 		collide_stage_rightwall(e);
 	}
-	if(e->grounded) {
-		e->grounded = collide_stage_floor_grounded(e);
-	} else if(e->y_speed > 0) {
+	if(!e->grounded && e->y_speed > 0) {
 		e->grounded = collide_stage_floor(e);
 		return;
 	}
@@ -526,8 +527,8 @@ uint8_t collide_stage_leftwall(Entity *e) {
 	uint16_t pixel_x = (e->x_next >> CSF) - xoff;
 	uint16_t pixel_y = (e->y_next >> CSF);
 	uint16_t block_x = pixel_to_block(pixel_x);
-	uint16_t block_y1 = pixel_to_block(pixel_y - e->hit_box.top + 3);
-	uint16_t block_y2 = pixel_to_block(pixel_y + e->hit_box.bottom - 3);
+	uint16_t block_y1 = pixel_to_block(pixel_y - e->hit_box.top + 4);
+	uint16_t block_y2 = pixel_to_block(pixel_y + e->hit_box.bottom - 4);
 	uint8_t pxa1 = stage_get_block_type(block_x, block_y1);
 	uint8_t pxa2 = stage_get_block_type(block_x, block_y2);
 	if(pxa1 == 0x41 || pxa2 == 0x41 || pxa1 == 0x43 || pxa2 == 0x43 ||
@@ -545,8 +546,8 @@ uint8_t collide_stage_rightwall(Entity *e) {
 	uint16_t pixel_x = (e->x_next >> CSF) + xoff;
 	uint16_t pixel_y = (e->y_next >> CSF);
 	uint16_t block_x = pixel_to_block(pixel_x);
-	uint16_t block_y1 = pixel_to_block(pixel_y - e->hit_box.top + 3);
-	uint16_t block_y2 = pixel_to_block(pixel_y + e->hit_box.bottom - 3);
+	uint16_t block_y1 = pixel_to_block(pixel_y - e->hit_box.top + 4);
+	uint16_t block_y2 = pixel_to_block(pixel_y + e->hit_box.bottom - 4);
 	uint8_t pxa1 = stage_get_block_type(block_x, block_y1);
 	uint8_t pxa2 = stage_get_block_type(block_x, block_y2);
 	if(pxa1 == 0x41 || pxa2 == 0x41 || pxa1 == 0x43 || pxa2 == 0x43 ||
@@ -568,7 +569,6 @@ uint8_t collide_stage_floor(Entity *e) {
 	pixel_y = sub_to_pixel(e->y_next) + e->hit_box.bottom;
 	pxa1 = stage_get_block_type(pixel_to_block(pixel_x1), pixel_to_block(pixel_y));
 	pxa2 = stage_get_block_type(pixel_to_block(pixel_x2), pixel_to_block(pixel_y));
-	pxa3 = stage_get_block_type(pixel_to_block(pixel_x3), pixel_to_block(pixel_y + 2));
 	if(pxa1 == 0x41 || pxa2 == 0x41 || pxa1 == 0x43 || pxa2 == 0x43 ||
 			(!((e->flags)&NPC_IGNORE44) && (pxa1 == 0x44 || pxa2 == 0x44))) {
 		if(e == &player && e->y_speed > 0xFF) sound_play(SND_THUD, 2);
@@ -577,89 +577,42 @@ uint8_t collide_stage_floor(Entity *e) {
 		return TRUE;
 	}
 	if(!e->enableSlopes) return FALSE;
-	uint8_t result = FALSE;
-	if((pxa1&0x10) && (pxa1&0xF) >= 4 && (pxa1&0xF) < 6 &&
-			(pixel_y&15) >= heightmap[pxa1&1][pixel_x1&15]) {
-		if(e == &player && e->y_speed > 0xFF) sound_play(SND_THUD, 2);
-		e->y_next = pixel_to_sub((pixel_y&0xFFF0) + 1 +
-				heightmap[pxa1&1][pixel_x1&15] - e->hit_box.bottom);
-		e->y_speed = 0;
-		result = TRUE;
-	}
-	if((pxa2&0x10) && (pxa2&0xF) >= 6 && (pxa2&0xF) < 8 &&
-			(pixel_y&15) >= (uint16_t)(0xF - heightmap[pxa2&1][pixel_x2&15])) {
-		if(e == &player && e->y_speed > 0xFF) sound_play(SND_THUD, 2);
-		e->y_next = pixel_to_sub((pixel_y&0xFFF0) + 0xF + 1 -
-				heightmap[pxa2&1][pixel_x2&15] - e->hit_box.bottom);
-		e->y_speed = 0;
-		result = TRUE;
-	}
-	// Extra check in the center
-	if(!result && (pxa3 & 0x10)) {
-		if((pxa3 & 0xF) >= 4 && ((pixel_y + 2) & 15) >= heightmap[pxa3&3][pixel_x3&15]) {
+	pxa3 = stage_get_block_type(pixel_to_block(pixel_x3), pixel_to_block(pixel_y));
+	if((pxa3 & 0x10) && (pxa3 & 0xF) >= 4 && (pxa3 & 0xF) < 8) {
+		uint8_t h = heightmap[pxa3 & 3][pixel_x3 & 15];
+		if((pixel_y & 15) >= h) {
 			if(e == &player && e->y_speed > 0xFF) sound_play(SND_THUD, 2);
-			e->y_next = e->y;
+			e->y_next = pixel_to_sub((pixel_y & ~0xF) + h - e->hit_box.bottom);
 			e->y_speed = 0;
-			result = TRUE;
+			return TRUE;
 		}
 	}
-	return result;
+	return FALSE;
+}
+
+static uint8_t collide_floor_slope_at(Entity *e, uint16_t pixel_x, uint16_t pixel_y) {
+	uint8_t pxa = stage_get_block_type(pixel_to_block(pixel_x), pixel_to_block(pixel_y));
+	if((pxa & 0x10) && (pxa & 0xF) >= 4 && (pxa & 0xF) < 8) {
+		uint8_t h = heightmap[pxa & 3][pixel_x & 15];
+		if((pixel_y & 15) >= h) {
+			e->y_next = pixel_to_sub((pixel_y & ~0xF) + h - e->hit_box.bottom);
+			e->y_speed = 0;
+			return TRUE;
+		}
+	}
+	return FALSE;
 }
 
 uint8_t collide_stage_slope_grounded(Entity *e) {
-	uint16_t pixel_x1, pixel_x2, pixel_x3, pixel_y;
-	uint8_t pxa1, pxa2, pxa3;
-	uint8_t result = FALSE;
-	pixel_x1 = sub_to_pixel(e->x_next) - e->hit_box.left + 1;
-	pixel_x2 = sub_to_pixel(e->x_next) + e->hit_box.right - 1;
-	pixel_x3 = sub_to_pixel(e->x_next);
-	// If we are on flat ground and run up to a slope
-	pixel_y = sub_to_pixel(e->y_next) + e->hit_box.bottom - 1;
-	pxa1 = stage_get_block_type(pixel_to_block(pixel_x1), pixel_to_block(pixel_y));
-	pxa2 = stage_get_block_type(pixel_to_block(pixel_x2), pixel_to_block(pixel_y));
-	if((pxa1&0x10) && (pxa1&0xF) >= 4 && (pxa1&0xF) < 6 &&
-			(pixel_y&15) >= heightmap[pxa1&3][pixel_x1&15]) {
-		e->y_next = pixel_to_sub((pixel_y&0xFFF0) + 1 +
-				heightmap[pxa1&3][pixel_x1&15] - e->hit_box.bottom);
-		e->y_speed = 0;
-		result = TRUE;
-	}
-	if((pxa2&0x10) && (pxa2&0xF) >= 6 && (pxa2&0xF) < 8 &&
-			(pixel_y&15) >= heightmap[pxa2&3][pixel_x2&15]) {
-		e->y_next = pixel_to_sub((pixel_y&0xFFF0) + 1 +
-				heightmap[pxa2&3][pixel_x2&15] - e->hit_box.bottom);
-		e->y_speed = 0;
-		result = TRUE;
-	}
-	if(result) return TRUE;
-	// If we're already on a slope
-	pixel_y = sub_to_pixel(e->y_next) + e->hit_box.bottom + 1;
-	pxa1 = stage_get_block_type(pixel_to_block(pixel_x1), pixel_to_block(pixel_y));
-	pxa2 = stage_get_block_type(pixel_to_block(pixel_x2), pixel_to_block(pixel_y));
-	pxa3 = stage_get_block_type(pixel_to_block(pixel_x3), pixel_to_block(pixel_y + 2));
-	if((pxa1&0x10) && (pxa1&0xF) >= 4 && (pxa1&0xF) < 6 &&
-			(pixel_y&15) >= heightmap[pxa1&3][pixel_x1&15]) {
-		e->y_next = pixel_to_sub((pixel_y&0xFFF0) + 1 +
-				heightmap[pxa1&3][pixel_x1&15] - e->hit_box.bottom);
-		e->y_speed = 0;
-		result = TRUE;
-	}
-	if((pxa2&0x10) && (pxa2&0xF) >= 6 && (pxa2&0xF) < 8 &&
-			(pixel_y&15) >= heightmap[pxa2&3][pixel_x2&15]) {
-		e->y_next = pixel_to_sub((pixel_y&0xFFF0) + 1 +
-				heightmap[pxa2&3][pixel_x2&15] - e->hit_box.bottom);
-		e->y_speed = 0;
-		result = TRUE;
-	}
-	// Extra check in the center
-	if(!result && (pxa3 & 0x10)) {
-		if((pxa3 & 0xF) >= 4 && ((pixel_y + 2) & 15) >= heightmap[pxa3&3][pixel_x3&15]) {
-			e->y_next = e->y;
-			e->y_speed = 0;
-			result = TRUE;
-		}
-	}
-	return result;
+	uint16_t pixel_x3 = sub_to_pixel(e->x_next);
+	uint16_t feet_y = sub_to_pixel(e->y_next) + e->hit_box.bottom;
+	// Check exact feet, 1px above (stepping from flat onto upward slope),
+	// and 1-2px below (staying grounded while walking down a slope)
+	if(collide_floor_slope_at(e, pixel_x3, feet_y)) return TRUE;
+	if(collide_floor_slope_at(e, pixel_x3, feet_y - 1)) return TRUE;
+	if(collide_floor_slope_at(e, pixel_x3, feet_y + 1)) return TRUE;
+	if(collide_floor_slope_at(e, pixel_x3, feet_y + 2)) return TRUE;
+	return FALSE;
 }
 
 uint8_t collide_stage_floor_grounded(Entity *e) {
@@ -671,13 +624,9 @@ uint8_t collide_stage_floor_grounded(Entity *e) {
 			pixel_to_block(sub_to_pixel(e->y_next) + e->hit_box.bottom + 1));
 	if(pxa1 == 0x41 || pxa2 == 0x41 || pxa1 == 0x43 || pxa2 == 0x43 ||
 		(!((e->flags)&NPC_IGNORE44) && (pxa1 == 0x44 || pxa2 == 0x44))) {
-		// After going up a slope and returning to flat land, we are one or
-		// two pixels too low. This causes the player to ignore new upward slopes
-		// which is bad, so this is a dumb hack to push us back up if we are
-		// a bit too low
-		if(((sub_to_pixel(e->y_next) + e->hit_box.bottom) & 15) < 4) {
-			e->y_next = pixel_to_sub(((sub_to_pixel(e->y_next) + e->hit_box.bottom)&~0xF) -
-				e->hit_box.bottom);
+		uint16_t probe_y = sub_to_pixel(e->y_next) + e->hit_box.bottom + 1; //fixed the dumb hack need to test more though
+		if((probe_y & 15) < 5) {
+			e->y_next = pixel_to_sub((probe_y & ~0xF) - e->hit_box.bottom);
 		}
 		result = TRUE;
 	}
@@ -701,18 +650,17 @@ uint8_t collide_stage_ceiling(Entity *e) {
 			(!((e->flags)&NPC_IGNORE44) && (pxa1 == 0x44 || pxa2 == 0x44))) {
 		e->y_next = pixel_to_sub((pixel_y&~0xF) + e->hit_box.top + 15) + 0x100;
 		result = TRUE;
-	} else {
-		if((pxa1&0x10) && (pxa1&0xF) >= 0 && (pxa1&0xF) < 2 &&
-				(pixel_y&15) <= (uint16_t)(0xF - heightmap[pxa1&1][pixel_x1&15])) {
-			e->y_next = pixel_to_sub((pixel_y&~0xF) + 0xF -
-					heightmap[pxa1&1][pixel_x1&15] + (e->hit_box.top - 1)) + 0x100;
-			result = TRUE;
-		}
-		if((pxa2&0x10) && (pxa2&0xF) >= 2 && (pxa2&0xF) < 4 &&
-				(pixel_y&15) <= heightmap[pxa2&1][pixel_x2&15]) {
-			e->y_next = pixel_to_sub((pixel_y&~0xF) +
-					heightmap[pxa2&1][pixel_x2&15] + (e->hit_box.top - 1)) + 0x100;
-			result = TRUE;
+	} else if(e->enableSlopes) {
+		uint16_t pixel_x3 = sub_to_pixel(e->x_next);
+		uint8_t pxa3 = stage_get_block_type(pixel_to_block(pixel_x3), pixel_to_block(pixel_y));
+		if((pxa3 & 0x10) && (pxa3 & 0xF) < 4) {
+			uint8_t h = ((pxa3 & 0xF) < 2)
+					? (0xF - heightmap[pxa3 & 1][pixel_x3 & 15])
+					: heightmap[pxa3 & 1][pixel_x3 & 15];
+			if((pixel_y & 15) <= h) {
+				e->y_next = pixel_to_sub((pixel_y & ~0xF) + h + e->hit_box.top);
+				result = TRUE;
+			}
 		}
 	}
 	if(result) {

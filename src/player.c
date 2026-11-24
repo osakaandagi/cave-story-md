@@ -176,7 +176,13 @@ void player_update(void) {
 				if(player.y_speed < -SPEED_12(0x5FF)) player.y_speed = -SPEED_12(0x5FF);
 			}
 		}
-		player_update_movement();
+		// Suppress player input while fade wipe is still in progress
+		if(wipeFadeTimer < 0) {
+			player_update_movement();
+		} else {
+			player.x_next = player.x + player.x_speed;
+			player.y_next = player.y + player.y_speed;
+		}
 		// Updates the booster while it is enabled
 		if(playerBoostState != BOOST_OFF) {
 			player_update_booster();
@@ -208,14 +214,14 @@ void player_update(void) {
 			// the ceiling during the opening scene with Kazuma on the computer.
 			// Hi Kazuma!
 			blocku_next = player.y_speed < 0 ? collide_stage_ceiling(&player) : FALSE;
+			// When grounded, resolve floor/slopes before walls so slopes lift Quote over adjacent blocks
+			if(ledge_time == 0 && player.grounded) {
+				player.grounded = collide_stage_floor_grounded(&player);
+			}
 			blockl_next = (player.x_speed <= 0 || playerPlatform) ? collide_stage_leftwall(&player) : FALSE;
 			blockr_next = (player.x_speed >= 0 || playerPlatform) ? collide_stage_rightwall(&player) : FALSE;
-			if(ledge_time == 0) {
-				if(player.grounded) {
-					player.grounded = collide_stage_floor_grounded(&player);
-				} else if(player.y_speed >= 0) {
-					player.grounded = collide_stage_floor(&player);
-				}
+			if(ledge_time == 0 && !player.grounded && player.y_speed >= 0) {
+				player.grounded = collide_stage_floor(&player);
 			}
 			blockd_next = player.grounded;
 			// Here I do something weird to emulate the way the game pushes quote
@@ -347,6 +353,10 @@ void player_update(void) {
 		}
 		player_update_air_display();
 	}
+	// Bullets before shooting, fixes enemies in the wall not getting hit
+	player_update_bullets();
+	// Skip weapon switching, shooting, and interaction while fade wipe is active
+	if(wipeFadeTimer >= 0) goto skip_input;
 	// Weapon switching
 	if(joytype == JOY_TYPE_PAD3) {
 		// 3 button controller cycles with A
@@ -361,8 +371,6 @@ void player_update(void) {
 			player_next_weapon();
 		}
 	}
-	// Bullets before shooting, fixes enemies in the wall not getting hit
-	player_update_bullets();
 	// Shooting
 	Weapon *w = &playerWeapon[currentWeapon];
 	if(iSuckAtThisGameSHIT) w->ammo = w->maxammo;
@@ -461,6 +469,7 @@ void player_update(void) {
 		}
 	}
 
+skip_input:
 	// Whimsical Star
 	if(playerEquipment & EQUIP_WHIMSICAL) {
 		wstar_update();
@@ -468,7 +477,7 @@ void player_update(void) {
 	
 	if(player.grounded) {
 		playerBoosterFuel = (use_pal_speed) ? 51 : 61;
-		player_update_interaction();
+		if(wipeFadeTimer < 0) player_update_interaction();
 	}
 	player_draw();
 	if(mapNameTTL > 0 && wipeFadeTimer < 12) {
@@ -970,11 +979,12 @@ void player_draw(void) {
 	enum { STAND, WALK1, WALK2, LOOKUP, UPWALK1, UPWALK2, LOOKDN, JUMPDN };
 	// Sprite Animation
 	player.oframe = player.frame;
+	uint8_t inputLocked = controlsLocked || wipeFadeTimer >= 0;
 	if(playerMoveMode) {
 		player.frame = WALK2;
 	} else {
 		if(player.grounded) {
-			if(joy_down(JOY_UP) && !controlsLocked) {
+			if(joy_down(JOY_UP) && !inputLocked) {
 				lookingDown = FALSE;
 				if(joystate&(JOY_LEFT | JOY_RIGHT)) {
 					static const uint8_t f[] = { UPWALK1, LOOKUP, UPWALK2, LOOKUP };
@@ -987,7 +997,7 @@ void player_draw(void) {
 					player.frame = LOOKUP;
 					player.animtime = 0;
 				}
-			} else if(joystate&(JOY_LEFT | JOY_RIGHT) && !controlsLocked) {
+			} else if(joystate&(JOY_LEFT | JOY_RIGHT) && !inputLocked) {
 				lookingDown = FALSE;
 				static const uint8_t f[] = { WALK1, STAND, WALK2, STAND };
 				if(++player.timer2 > TIME_8(4)) {
@@ -995,7 +1005,7 @@ void player_draw(void) {
 					if(++player.animtime > 3) player.animtime = 0;
 				}
 				player.frame = f[player.animtime];
-			} else if(joy_pressed(JOY_DOWN) && !controlsLocked) {
+			} else if(joy_pressed(JOY_DOWN) && !inputLocked) {
 				lookingDown = TRUE;
 				player.frame = LOOKDN;
 				player.animtime = 0;
@@ -1006,9 +1016,9 @@ void player_draw(void) {
 		} else {
 			lookingDown = FALSE;
 			player.animtime = 0;
-			if(joy_down(JOY_UP) && !controlsLocked) {
+			if(joy_down(JOY_UP) && !inputLocked) {
 				player.frame = (player.y_speed > 0) ? UPWALK2 : UPWALK1;
-			} else if(joy_down(JOY_DOWN) && !controlsLocked) {
+			} else if(joy_down(JOY_DOWN) && !inputLocked) {
 				player.frame = JUMPDN;
 			} else {
 				player.frame = (player.y_speed > 0) ? WALK2 : WALK1;
@@ -1023,7 +1033,7 @@ void player_draw(void) {
 		// Change direction if pressing left or right
 		if(playerMoveMode) {
 			player.dir = RIGHT;
-		} else if(!controlsLocked) {
+		} else if(!inputLocked) {
 			if(joy_down(JOY_RIGHT)) {
 				player.dir = 1;
 			} else if(joy_down(JOY_LEFT)) {
@@ -1037,6 +1047,8 @@ void player_draw(void) {
 		vdp_sprite_add(&playerSprite);
 		if(playerWeapon[currentWeapon].type > 0 && playerWeapon[currentWeapon].type != WEAPON_BLADE) {
 			uint16_t vert = 0, vdir = 0;
+			int8_t walk_y = (player.frame == WALK1 || player.frame == WALK2 ||
+					player.frame == UPWALK1 || player.frame == UPWALK2) ? -1 : 0;
 			if(player.frame==LOOKUP || player.frame==UPWALK1 || player.frame==UPWALK2) {
 				vert = 1;
 				vdir = 0;
@@ -1045,16 +1057,18 @@ void player_draw(void) {
 				vdir = 1;
 			}
 			if(vert) {
+				int8_t vert_y = (vdir ? -4 : -12) + walk_y;
 				weaponSprite = (Sprite) {
 					.x = (player.x>>CSF) - camera.x_shifted - 4 + 128,
-					.y = (player.y>>CSF) - camera.y_shifted - 8 + 128,
+					.y = (player.y>>CSF) - camera.y_shifted + vert_y + 128,
 					.size = SPRITE_SIZE(1, 3),
 					.attr = TILE_ATTR(PAL1,0,vdir,vdir ? !player.dir : player.dir,TILE_WEAPONINDEX+3),
 				};
 			} else {
+				int8_t hoz_x = player.dir ? -10 : -14;
 				weaponSprite = (Sprite) {
-					.x = (player.x>>CSF) - camera.x_shifted - 12 + 128,
-					.y = (player.y>>CSF) - camera.y_shifted - 0 + 128,
+					.x = (player.x>>CSF) - camera.x_shifted + hoz_x + 128,
+					.y = (player.y>>CSF) - camera.y_shifted + walk_y + 128,
 					.size = SPRITE_SIZE(3, 1),
 					.attr = TILE_ATTR(PAL1,0,0,player.dir,TILE_WEAPONINDEX),
 				};

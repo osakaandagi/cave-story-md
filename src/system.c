@@ -421,6 +421,8 @@ void system_load(uint8_t index) {
 	uint8_t song = sram_read_word(loc);			loc += 2;
 	player.x = block_to_sub(sram_read_word(loc)) + (8<<CSF); loc += 2;
 	player.y = block_to_sub(sram_read_word(loc)) + (8<<CSF); loc += 2;
+	player.x_next = player.x;
+	player.y_next = player.y;
 	playerMaxHealth = sram_read_word(loc); 		loc += 2;
 	player.health = sram_read_word(loc); 		loc += 2;
 	currentWeapon = sram_read_word(loc); 		loc += 2;
