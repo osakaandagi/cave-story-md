@@ -1,3 +1,5 @@
+//Quote code
+//TODO: fix scuffed physics, maybe rename both .c and .h to quote.c
 #include "common.h"
 
 #include "audio.h"
@@ -487,7 +489,7 @@ static void player_update_walk(void) {
 	int16_t fric;
 	int16_t max_speed;
 	if(use_pal_speed) {
-		max_speed = 810;
+		max_speed = 0x32C;
 		if(player.grounded) {
 			acc = 85;
 			fric = 51;
@@ -496,7 +498,8 @@ static void player_update_walk(void) {
 			fric = 0;
 		}
 	} else {
-		max_speed = 675;
+		// Scaled from 50 FPS CSE2 constants (0x32C, 85, 51, 32) to ~60 FPS NTSC (5/6)
+		max_speed = 676;
 		if(player.grounded) {
 			acc = 71;
 			fric = 42;
@@ -515,7 +518,6 @@ static void player_update_walk(void) {
 			effect_create(EFF_SPLASH, player.x >> CSF, player.y >> CSF, FALSE);
 			effect_create(EFF_SPLASH, player.x >> CSF, player.y >> CSF, FALSE);
 		}
-		// Half everything, maybe inaccurate?
 		acc >>= 1;
 		max_speed >>= 1;
 		fric >>= 1;
@@ -524,10 +526,16 @@ static void player_update_walk(void) {
 	}
 	// Stop player from moving faster if they exceed max speed
 	if(joy_down(JOY_LEFT)) {
-		if(player.x_speed >= -max_speed) player.x_speed -= acc;
+		if(player.x_speed > -max_speed) {
+			player.x_speed -= acc;
+			if(player.x_speed < -max_speed) player.x_speed = -max_speed;
+		}
 	}
 	if(joy_down(JOY_RIGHT)) {
-		if(player.x_speed <= max_speed) player.x_speed += acc;
+		if(player.x_speed < max_speed) {
+			player.x_speed += acc;
+			if(player.x_speed > max_speed) player.x_speed = max_speed;
+		}
 	}
 	// But only slow them down on the ground
 	if(player.grounded) {
@@ -970,7 +978,7 @@ void player_draw(void) {
 				lookingDown = FALSE;
 				if(joystate&(JOY_LEFT | JOY_RIGHT)) {
 					static const uint8_t f[] = { UPWALK1, LOOKUP, UPWALK2, LOOKUP };
-					if(++player.timer2 > TIME_8(5)) {
+					if(++player.timer2 > TIME_8(4)) {
 						player.timer2 = 0;
 						if(++player.animtime > 3) player.animtime = 0;
 					}
@@ -982,7 +990,7 @@ void player_draw(void) {
 			} else if(joystate&(JOY_LEFT | JOY_RIGHT) && !controlsLocked) {
 				lookingDown = FALSE;
 				static const uint8_t f[] = { WALK1, STAND, WALK2, STAND };
-				if(++player.timer2 > TIME_8(5)) {
+				if(++player.timer2 > TIME_8(4)) {
 					player.timer2 = 0;
 					if(++player.animtime > 3) player.animtime = 0;
 				}

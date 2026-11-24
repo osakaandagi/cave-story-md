@@ -451,7 +451,7 @@ void ai_balrogRunning(Entity *e) {
 		case STATE_CHARGE+1:
 		{
 			ACCEL_X(0x10);
-			ANIMATE(e, 8, WALK1,STAND,WALK2,STAND);
+			ANIMATE(e, 4, WALK1,STAND,WALK2,STAND);
 			if (++e->timer > TIME(75) ||
 				(!e->dir && collide_stage_leftwall(e)) ||
 				(e->dir && collide_stage_rightwall(e)))

@@ -67,7 +67,7 @@ void ai_critter(Entity *e) {
 				e->frame = 2;
 				e->timer = 0;
 				e->grounded = FALSE;
-				e->y_speed = -SPEED_12(0x640);
+				e->y_speed = -SPEED_12(0x560);
 				sound_play(SND_ENEMY_JUMP, 5);
 			}
 		}
