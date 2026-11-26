@@ -228,6 +228,9 @@ $(BUILD_DIR)/%.s: %.res | $(RESCOMP) $(SALVADOR) $$(@D)/
 # Rebuild the English localization bundle when its generated assets change.
 $(BUILD_DIR)/src/res/local.o: $(TSBS) $(STRO)
 
+# Rebuild the BGM bundle when converted .xgc tracks change.
+$(BUILD_DIR)/src/res/bgm.o: $(XGCS)
+
 # Special case for rescomp output
 $(BUILD_DIR)/%.o: $(BUILD_DIR)/%.s
 	$(AS) -m68000 $(INCS) -c $< -o $@
