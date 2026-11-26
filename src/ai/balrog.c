@@ -452,6 +452,9 @@ void ai_balrogRunning(Entity *e) {
 		{
 			ACCEL_X(0x10);
 			ANIMATE(e, 4, WALK1,STAND,WALK2,STAND);
+			if (e->animtime == 5 || e->animtime == 13) {
+				sound_play(SND_THUD, 5);
+			}
 			if (++e->timer > TIME(75) ||
 				(!e->dir && collide_stage_leftwall(e)) ||
 				(e->dir && collide_stage_rightwall(e)))
@@ -478,6 +481,7 @@ void ai_balrogRunning(Entity *e) {
 			if(e->grounded) {
 				e->frame = DUCK;		// <-- Landed frame.
 				camera_shake(30);
+				sound_play(SND_QUAKE, 5);
 				e->state = STATE_SLOW_DOWN;
 			}
 		}
