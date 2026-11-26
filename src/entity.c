@@ -328,6 +328,18 @@ void entities_update(uint8_t draw) {
 				if(collided && player_inflict_damage(e->attack)) return;
 			}
 		}
+		// run event on contact, h/v triggers works more like freeware (NPC_EVENT_WHEN_TOUCHED / 0x0100)
+		if(!tscState && wipeFadeTimer < 0 && (e->flags & NPC_OPTION1) && e->event > 0
+				&& e->type != OBJ_HVTRIGGER && e->type != OBJ_TRIGGER_SPECIAL) {
+			if(!(e->flags & (NPC_SOLID | NPC_SPECIALSOLID))) {
+				player.hit_box = PLAYER_SOFT_HIT_BOX;
+				collided = entity_overlapping(&player, e);
+				player.hit_box = PLAYER_HARD_HIT_BOX;
+			}
+			if(collided) {
+				tsc_call_event(e->event);
+			}
+		}
 		// Damage timer and shaking
 		if(e->damage_value) {
 			e->damage_time--;

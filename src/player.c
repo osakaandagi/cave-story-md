@@ -665,7 +665,7 @@ void player_update_bullets(void) {
 
 static void player_update_interaction(void) {
 	// Interaction with entities when pressing down
-	if(joy_down(JOY_LEFT|JOY_RIGHT)) return;
+	if(tscState || joy_down(JOY_LEFT|JOY_RIGHT)) return;
 
 	if((cfg_updoor ? joy_pressed(JOY_UP) : joy_pressed(JOY_DOWN))) {
 		player.x_speed /= 2; // Stop overshooting the teleporter
@@ -1057,7 +1057,7 @@ void player_draw(void) {
 				vdir = 1;
 			}
 			if(vert) {
-				int8_t vert_y = (vdir ? -4 : -12) + walk_y; //fixes polar star not sure about other weapons rn
+				int8_t vert_y = (vdir ? -6 : -14) + walk_y; //fixes polar star not sure about other weapons rn
 				weaponSprite = (Sprite) {
 					.x = (player.x>>CSF) - camera.x_shifted - 4 + 128,
 					.y = (player.y>>CSF) - camera.y_shifted + vert_y + 128,

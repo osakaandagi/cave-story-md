@@ -159,7 +159,7 @@ void onspawn_trigger(Entity *e) {
 // Triggers will activate on player's collision
 // OPTION2 off: horizontal, on: vertical
 void ai_trigger(Entity *e) {
-	if(tscState) return;
+	if(tscState || wipeFadeTimer >= 0) return;
 	if(e->state == 0) {
 		e->alwaysActive = TRUE;
 		e->state++;
@@ -184,7 +184,7 @@ void ai_trigger(Entity *e) {
 // Special H/V trigger logic for Outer Wall and Balcony
 // OPTION2 off: horizontal, on: vertical
 void ai_trigger_special(Entity *e) {
-	if(tscState) return;
+	if(tscState || wipeFadeTimer >= 0) return;
 	if(e->flags & NPC_OPTION2) { // Vertical
 		if(e->flags & NPC_OPTION1) {
 			if(player.x > e->x) tsc_call_event(e->event); // Right
